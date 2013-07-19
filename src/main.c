@@ -89,6 +89,9 @@ void call_proxy(struct curl_result* result, char* key){
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, result);
   res = curl_easy_perform(curl);
+  if(res){
+    curl_easy_cleanup(curl);
+  }
 }
 
 uv_buf_t handle_version(){
