@@ -1,3 +1,4 @@
+#include <curl/curl.h>
 #include <kclangc.h>
 #include <signal.h>
 #include <uv.h>
@@ -9,8 +10,14 @@ static sig_atomic_t hits = 0;
 
 const char* VERSION = "0.0.1";
 
+struct curl_result {
+  char* data;
+  size_t size;
+};
+
+
 void lower(char* word){
-  int length = sizeof(word) / sizeof(char);
+  int length = strlen(word);
   int i;
   for(i = 0; i < length; ++i){
     word[i] = tolower(word[i]);
@@ -25,8 +32,6 @@ void handle_write(uv_write_t *req, int status) {
   if(status == -1){
     fprintf(stderr, "Write error %s\n", uv_err_name(uv_last_error(loop)));
   }
-  free(req->data);
-  free(req);
 }
 
 char** get_tokens(char* base){
@@ -54,16 +59,51 @@ char** get_tokens(char* base){
   return tokens;
 }
 
+size_t curl_write(char* ptr, size_t size, size_t nmemb, struct curl_result* result){
+  size_t realsize = size * nmemb;
+
+  result->data= realloc(result->data, result->size + realsize + 1);
+  if(result->data == NULL){
+    fprintf(stderr, "Out of memory receiving curl results\n");
+    return 0;
+  }
+  memcpy(&(result->data[result->size]), ptr, realsize);
+  result->size += realsize;
+  result->data[result->size] = 0;
+  return realsize;
+}
+
+void call_proxy(struct curl_result* result, char* key){
+  char url[1024];
+  sprintf(url, "http://127.0.0.1:8000/%s", key);
+  CURL* curl = curl_easy_init();
+  if(!curl){
+    fprintf(stderr, "Could not initialize curl\n");
+    return;
+  }
+
+  result->data = malloc(1);
+  result->size = 0;
+  CURLcode res;
+  curl_easy_setopt(curl, CURLOPT_URL, url);
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, result);
+  res = curl_easy_perform(curl);
+}
+
 uv_buf_t handle_version(){
   char buffer[1024];
   int n;
-  n = sprintf(buffer, "VERSION %s\n", VERSION);
+  n = sprintf(buffer, "VERSION %s\r\n", VERSION);
   return uv_buf_init(buffer, n);
 }
 
 uv_buf_t handle_flush_all(){
-  kcdbclear(db);
-  return uv_buf_init("OK\n", 3);
+  if(kcdbclear(db)){
+    return uv_buf_init("OK\r\n", 4);
+  } else{
+    return uv_buf_init("FAILED\r\n", 8);
+  }
 }
 
 uv_buf_t handle_stats(){
@@ -75,8 +115,9 @@ uv_buf_t handle_stats(){
   } else{
     ratio = (float)hits / (hits + cache_miss);
   }
-  char* format = "STAT cache_miss %d\nSTAT hits %d\nSTAT hit_ratio %2.2f\nEND\n";
-  n = sprintf(buffer, format, cache_miss, hits, ratio);
+  int records = kcdbcount(db);
+  char* format = "STAT cache_miss %d\r\nSTAT hits %d\r\nSTAT hit_ratio %2.2f\r\nSTAT records %d\r\nEND\r\n";
+  n = sprintf(buffer, format, cache_miss, hits, ratio, records);
   return uv_buf_init(buffer, n);
 }
 
@@ -91,14 +132,17 @@ uv_buf_t handle_get(char** tokens){
     int result = !!result_buffer;
     if(!result){
       ++cache_miss;
-      result_buffer = "{}";
+      struct curl_result result;
+      call_proxy(&result, tokens[1]);
+      result_buffer = result.data;
+      kcdbset(db, tokens[1], strlen(tokens[1]), result_buffer, strlen(result_buffer));
     } else{
       ++hits;
     }
 
     char buffer[1024];
     int n;
-    n = sprintf(buffer, "VALUE 0 %lu\n%s\nEND\n", strlen(result_buffer), result_buffer);
+    n = sprintf(buffer, "VALUE %s 0 %lu\r\n%s\r\nEND\r\n", tokens[1], strlen(result_buffer), result_buffer);
 
     if(result){
       kcfree(result_buffer);
@@ -107,7 +151,7 @@ uv_buf_t handle_get(char** tokens){
   } else{
     char buffer[128];
     int n;
-    n = sprintf(buffer, "Invalid GET command: \"GET <REQUEST>\"\n");
+    n = sprintf(buffer, "Invalid GET command: \"GET <REQUEST>\"\r\n");
     out = uv_buf_init(buffer, n);
   }
 
@@ -145,7 +189,7 @@ void handle_read(uv_stream_t *client, ssize_t nread, uv_buf_t buf){
   } else{
     char buffer[128];
     int n;
-    n = sprintf(buffer, "Unknown command: %s\n", tokens[0]);
+    n = sprintf(buffer, "Unknown command: %s\r\n", tokens[0]);
     out = uv_buf_init(buffer, n);
   }
 
@@ -176,7 +220,6 @@ void on_signal(){
     printf("Closing Cache...\n");
     kcdbclose(db);
   }
-
   exit(0);
 }
 
@@ -185,13 +228,10 @@ int main(){
 
   printf("Opening Cache...\n");
   db = kcdbnew();
-  if(!kcdbopen(db, "*", KCOWRITER | KCOCREATE)){
+  if(!kcdbopen(db, "*#bnum=1000000#capsiz=1g", KCOWRITER | KCOCREATE)){
     fprintf(stderr, "Error opening cache: %s\n", kcecodename(kcdbecode(db)));
     return -1;
   }
-
-  char* key = "www.magnetic.com";
-  kcdbset(db, key, strlen(key), "{}", 2);
 
   loop = uv_default_loop();
   uv_tcp_t server;
