@@ -1,13 +1,17 @@
-all:
-	mkdir -p out
-	gcc -I/usr/local/include ./src/main.c -o ./out/fast-cache -L/usr/local/lib -lkyotocabinet -lcurl
+CFLAGS=$(shell curl-config --cflags) -Wall $(EXTRA_CFLAGS)
+LFLAGS=$(shell curl-config --libs) -lpthread -lkyotocabinet
+CC=gcc
+
+default: fast-cache
+
+fast-cache:
+	$(CC) $(CFLAGS) ./src/main.c -o $@ $(LFLAGS)
 
 debug:
-	mkdir -p out
-	gcc -I/usr/local/include ./src/main.c -o ./out/fast-cache -L/usr/local/lib -lkyotocabinet -lcurl -g
+	make -f Makefile EXTRA_CFLAGS="-g"
 
 run:
-	./out/fast-cache
+	./fast-cache
 
 clean:
-	rm -rf out
+	rm ./fast-cache
