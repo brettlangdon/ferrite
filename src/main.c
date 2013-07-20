@@ -9,11 +9,13 @@
 static const char* VERSION = "0.0.1";
 static sig_atomic_t misses = 0;
 static sig_atomic_t hits = 0;
+static sig_atomic_t connections = 0;
 
 static KCDB* db;
 static int sd;
 
 const char* STATS_FORMAT =
+  "STAT connections %d\r\n"
   "STAT hits %d\r\n"
   "STAT misses %d\r\n"
   "STAT hit_ratio %2.4f\r\n"
@@ -173,7 +175,7 @@ void handle_stats(KCLIST* tokens, FILE* client){
     kclistdel(parts);
     strcat(status_buf, buf);
   }
-  sprintf(out, STATS_FORMAT, hits, misses, hit_ratio, status_buf);
+  sprintf(out, STATS_FORMAT, connections, hits, misses, hit_ratio, status_buf);
   fputs(out, client);
 }
 
@@ -264,7 +266,7 @@ void* worker(void* arg){
   FILE* fp = (FILE*) arg;
 
   char buffer[100];
-
+  ++connections;
   int status;
   while(fgets(buffer, sizeof(buffer), fp)){
     int last = strlen(buffer) - 1;
@@ -281,6 +283,7 @@ void* worker(void* arg){
     }
   }
 
+  --connections;
   fclose(fp);
   return 0;
 }
