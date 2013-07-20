@@ -1,6 +1,6 @@
 all:
 	mkdir -p out
-	gcc -I/usr/local/include ./src/main.c -o ./out/fast-cache -L/usr/local/lib -luv -lkyotocabinet -lcurl
+	gcc -I/usr/local/include ./src/main.c -o ./out/fast-cache -L/usr/local/lib -lkyotocabinet -lcurl
 
 debug:
 	mkdir -p out
