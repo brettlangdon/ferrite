@@ -24,39 +24,42 @@ void lower(char* word){
   }
 }
 
-uv_buf_t alloc_buffer(uv_handle_t *handle, size_t suggested_size) {
-  return uv_buf_init((char*) malloc(suggested_size), suggested_size);
+static uv_buf_t alloc_buffer(uv_handle_t *handle, size_t suggested_size) {
+  uv_buf_t buf;
+  buf.base = malloc(suggested_size);
+  buf.len = suggested_size;
+  return buf;
 }
 
 void handle_write(uv_write_t *req, int status) {
   if(status == -1){
     fprintf(stderr, "Write error %s\n", uv_err_name(uv_last_error(loop)));
   }
+
+  char* base = (char*)req->data;
+  free(base);
+  free(req);
 }
 
-char** get_tokens(char* base){
+void get_tokens(char** tokens, char* base){
   size_t size = 0;
-  int i = 0;
-  char** tokens = malloc(size);
-  char* token = strtok(base, " ");
-  while(token){
-    int last = strlen(token) - 1;
-    if(token[last] == '\n'){
-      token[last] = '\0';
-      continue;
-    } else if(token[last] == '\r'){
-      token[last] = '\0';
-      continue;
+  char* remainder;
+  char* token;
+  char* ptr = base;
+  while(token = strtok_r(ptr, " ", &remainder)){
+    int last;
+    for(last = 0; last < strlen(token); ++last){
+      if(token[last] == '\n' || token[last] == '\r'){
+	token[last] = 0;
+	break;
+      }
     }
-    ++size;
-    tokens = realloc(tokens, size);
     lower(token);
-    tokens[i] = token;
-    ++i;
-    token = strtok(NULL, " ");
+    tokens[size] = token;
+    ++size;
+    ptr = remainder;
   }
-
-  return tokens;
+  free(token);
 }
 
 size_t curl_write(char* ptr, size_t size, size_t nmemb, struct curl_result* result){
@@ -73,8 +76,13 @@ size_t curl_write(char* ptr, size_t size, size_t nmemb, struct curl_result* resu
   return realsize;
 }
 
-void call_proxy(struct curl_result* result, char* key){
-  char url[1024];
+void after_call_proxy(uv_work_t* req, int status){
+  free(req);
+}
+
+void call_proxy(uv_work_t* req){
+  char* key = (char*)req->data;
+  char* url = (char*)malloc(1024 * sizeof(char));
   sprintf(url, "http://127.0.0.1:8000/%s", key);
   CURL* curl = curl_easy_init();
   if(!curl){
@@ -82,36 +90,36 @@ void call_proxy(struct curl_result* result, char* key){
     return;
   }
 
-  result->data = malloc(1);
+  struct curl_result* result = malloc(sizeof(struct curl_result));
+  result->data = malloc(sizeof(char));
+  result->data[0] = 0;
   result->size = 0;
   CURLcode res;
   curl_easy_setopt(curl, CURLOPT_URL, url);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, result);
   res = curl_easy_perform(curl);
-  if(res){
-    curl_easy_cleanup(curl);
-  }
+  kcdbset(db, key, strlen(key), result->data, strlen(result->data));
+
+  curl_easy_cleanup(curl);
+  free(url);
+  free(result->data);
+  free(result);
 }
 
-uv_buf_t handle_version(){
-  char buffer[1024];
-  int n;
-  n = sprintf(buffer, "VERSION %s\r\n", VERSION);
-  return uv_buf_init(buffer, n);
+void handle_version(char* buffer){
+  sprintf(buffer, "VERSION %s\r\n", VERSION);
 }
 
-uv_buf_t handle_flush_all(){
+void handle_flush_all(char* buffer){
   if(kcdbclear(db)){
-    return uv_buf_init("OK\r\n", 4);
+    sprintf(buffer, "OK\r\n");
   } else{
-    return uv_buf_init("FAILED\r\n", 8);
+    sprintf(buffer, "FAILED\r\n");
   }
 }
 
-uv_buf_t handle_stats(){
-  char buffer[1024];
-  int n;
+void handle_stats(char* buffer){
   float ratio;
   if(!hits && !cache_miss){
     ratio = 0;
@@ -120,45 +128,42 @@ uv_buf_t handle_stats(){
   }
   int records = kcdbcount(db);
   char* format = "STAT cache_miss %d\r\nSTAT hits %d\r\nSTAT hit_ratio %2.2f\r\nSTAT records %d\r\nEND\r\n";
-  n = sprintf(buffer, format, cache_miss, hits, ratio, records);
-  return uv_buf_init(buffer, n);
+  sprintf(buffer, format, cache_miss, hits, ratio, records);
 }
 
-uv_buf_t handle_get(char** tokens){
-  uv_buf_t out;
+void handle_get(char* buffer, char** tokens){
   if(tokens[1]){
     char* result_buffer;
+    char key[1024];
+    strcpy(key, tokens[1]);
     size_t result_size, key_size;
-    key_size = strlen(tokens[1]);
-    result_buffer = kcdbget(db, tokens[1], key_size, &result_size);
+    key_size = strlen(key);
+    result_buffer = kcdbget(db, key, key_size, &result_size);
 
     int result = !!result_buffer;
-    if(!result){
+    if(result == 0){
       ++cache_miss;
-      struct curl_result result;
-      call_proxy(&result, tokens[1]);
-      result_buffer = result.data;
-      kcdbset(db, tokens[1], strlen(tokens[1]), result_buffer, strlen(result_buffer));
+      uv_work_t* req = malloc(sizeof(uv_work_t));
+      req->data = malloc(sizeof(key));
+      strcpy(req->data, key);
+      uv_queue_work(loop, req, call_proxy, after_call_proxy);
+      result_buffer = "";
+      kcdbset(db, key, strlen(key), "0", 1);
+    } else if(strcmp(result_buffer, "0") == 0){
+      ++cache_miss;
+      result_buffer = "";
+      result = 0;
     } else{
       ++hits;
     }
 
-    char buffer[1024];
-    int n;
-    n = sprintf(buffer, "VALUE %s 0 %lu\r\n%s\r\nEND\r\n", tokens[1], strlen(result_buffer), result_buffer);
-
+    sprintf(buffer, "VALUE %s 0 %lu\r\n%s\r\nEND\r\n", key, strlen(result_buffer), result_buffer);
     if(result){
       kcfree(result_buffer);
     }
-    out = uv_buf_init(buffer, n);
   } else{
-    char buffer[128];
-    int n;
-    n = sprintf(buffer, "Invalid GET command: \"GET <REQUEST>\"\r\n");
-    out = uv_buf_init(buffer, n);
+    sprintf(buffer, "END\r\n");
   }
-
-  return out;
 }
 
 void handle_read(uv_stream_t *client, ssize_t nread, uv_buf_t buf){
@@ -173,31 +178,34 @@ void handle_read(uv_stream_t *client, ssize_t nread, uv_buf_t buf){
   }
 
   uv_write_t *req = (uv_write_t *) malloc(sizeof(uv_write_t));
-  uv_buf_t out;
 
-  char** tokens = get_tokens(buf.base);
+  char* tokens[8];
+  get_tokens(tokens, buf.base);
 
-  char* command = tokens[0];
-  if(strcmp(command, "get") == 0){
-    out = handle_get(tokens);
-  } else if(strcmp(command, "stats") == 0){
-    out = handle_stats();
-  } else if(strcmp(command, "flush_all") == 0){
-    out = handle_flush_all();
-  } else if(strcmp(command, "version") == 0){
-    out = handle_version();
-  } else if(strcmp(command, "quit") == 0){
+  char* buffer = (char*)malloc(1024 * sizeof(char));
+  if(strcmp(tokens[0], "get") == 0){
+    handle_get(buffer, tokens);
+  } else if(strcmp(tokens[0], "stats") == 0){
+    handle_stats(buffer);
+  } else if(strcmp(tokens[0], "flush_all") == 0){
+    handle_flush_all(buffer);
+  } else if(strcmp(tokens[0], "version") == 0){
+    handle_version(buffer);
+  } else if(strcmp(tokens[0], "quit") == 0){
     uv_close((uv_handle_t*) client, NULL);
     return;
   } else{
-    char buffer[128];
-    int n;
-    n = sprintf(buffer, "Unknown command: %s\r\n", tokens[0]);
-    out = uv_buf_init(buffer, n);
+    sprintf(buffer, "Unknown Command: %s\r\n", tokens[0]);
   }
-
-  buf.len = nread;
-  uv_write(req, client, &out, 1, handle_write);
+  buf.base = malloc((strlen(buffer) * sizeof(char)) + 1);
+  strcpy(buf.base, buffer);
+  buf.len = strlen(buf.base);
+  req->data = malloc((strlen(buffer) * sizeof(char)) + 1);
+  strcpy(req->data, buffer);
+  uv_write(req, client, &buf, 1, handle_write);
+  free(buffer);
+  free(*tokens);
+  *tokens = NULL;
 }
 
 void on_new_connection(uv_stream_t* server, int status){
