@@ -17,4 +17,5 @@
 *.app
 
 
-out/
+fast-cache
+*.pyc
