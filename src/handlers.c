@@ -1,9 +1,14 @@
-#ifndef FAST_CACHE_HANDLERS
-#define FAST_CACHE_HANDLERS
-#include <kclangc.h>
+#include "handlers.h"
 
-#include "common.c"
-#include "queue.c"
+const char* VERSION = "0.0.1";
+const char* STATS_FORMAT =
+  "STAT connections %d\r\n"
+  "STAT hits %d\r\n"
+  "STAT misses %d\r\n"
+  "STAT hit_ratio %2.4f\r\n"
+  "STAT backlog %d\r\n"
+  "%s"
+  "END\r\n";
 
 void handle_stats(KCLIST* tokens, FILE* client){
   char out[1024];
@@ -11,6 +16,7 @@ void handle_stats(KCLIST* tokens, FILE* client){
   if(hits){
     hit_ratio = (float)hits / (float)(hits + misses);
   }
+  int size = queue_size(&requests);
   char* status = kcdbstatus(db);
   KCLIST* stats = kclistnew();
   tokenize(stats, status, "\n");
@@ -30,7 +36,7 @@ void handle_stats(KCLIST* tokens, FILE* client){
     kclistdel(parts);
     strcat(status_buf, buf);
   }
-  sprintf(out, STATS_FORMAT, connections, hits, misses, hit_ratio, status_buf);
+  sprintf(out, STATS_FORMAT, connections, hits, misses, hit_ratio, size, status_buf);
   fputs(out, client);
 }
 
@@ -67,7 +73,7 @@ void handle_get(KCLIST* tokens, FILE* client){
     if(result_buffer){
       if(strcmp(result_buffer, "0") == 0){
 	++misses;
-	sprintf(out, "VALUE %s 0 2\r\n{}\r\nEND\r\n", key);
+	sprintf(out, "VALUE %s 0 0\r\n\r\nEND\r\n", key);
       } else{
 	++hits;
 	sprintf(out, "VALUE %s 0 %d\r\n%s\r\nEND\r\n", key, (int)strlen(result_buffer), result_buffer);
@@ -92,7 +98,7 @@ int handle_command(char* buffer, FILE* client){
   KCLIST* tokens = kclistnew();
   tokenize(tokens, buffer, " ");
   list_shift(tokens, command);
-  if(command){
+  if(command != NULL){
     if(strcmp(command, "get") == 0){
       handle_get(tokens, client);
     } else if(strcmp(command, "stats") == 0){
@@ -116,4 +122,3 @@ int handle_command(char* buffer, FILE* client){
 
   return status;
 }
-#endif

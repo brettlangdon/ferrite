@@ -3,12 +3,17 @@
 #include <pthread.h>
 #include <signal.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
-#include "common.c"
-#include "handlers.c"
-#include "proxy.c"
-#include "queue.c"
-#include "util.c"
+#include "common.h"
+#include "handlers.h"
+#include "proxy.h"
+#include "queue.h"
+#include "util.h"
+
+sig_atomic_t misses = 0;
+sig_atomic_t hits = 0;
+sig_atomic_t connections = 0;
 
 
 void* worker(void* arg){
@@ -57,7 +62,7 @@ void on_signal(){
 
 int main(){
   signal(SIGINT, on_signal);
-  int pool_size = 5;
+  int pool_size = 10;
   pthread_t pool[pool_size];
 
   queue_init(&requests);

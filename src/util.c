@@ -1,7 +1,4 @@
-#ifndef FAST_CACHE_UTIL
-#define FAST_CACHE_UTIL
-
-#include <kclangc.h>
+#include "util.h"
 
 void list_shift(KCLIST* list, char* next){
   size_t size;
@@ -24,7 +21,7 @@ void tokenize(KCLIST* tokens, char* base, char* delimiter){
   char* remainder;
   char* token;
   char* ptr = base;
-  while(token = strtok_r(ptr, delimiter, &remainder)){
+  while((token = strtok_r(ptr, delimiter, &remainder))){
     int last;
     int len = strlen(token);
     for(last = len - 1; last >= 0; --last){
@@ -42,5 +39,3 @@ void tokenize(KCLIST* tokens, char* base, char* delimiter){
   }
   free(token);
 }
-
-#endif

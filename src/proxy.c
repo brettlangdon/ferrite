@@ -1,16 +1,6 @@
-#ifndef FAST_CACHE_PROXY
-#define FAST_CACHE_PROXY
-#include <curl/curl.h>
+#include "proxy.h"
 
-#include "common.c"
-#include "queue.c"
-
-struct curl_result {
-  char* data;
-  size_t size;
-};
-
-size_t curl_write(char* ptr, size_t size, size_t nmemb, struct curl_result* result){
+size_t curl_write(char* ptr, size_t size, size_t nmemb, CURL_RESULT* result){
   size_t realsize = size * nmemb;
 
   result->data= realloc(result->data, result->size + realsize + 1);
@@ -29,14 +19,14 @@ void* call_proxy(void* arg){
   while(1){
     queue_get(&requests, next);
     char* url = (char*)malloc(1024 * sizeof(char));
-    sprintf(url, "http://127.0.0.1:8000/%s", next);
+    sprintf(url, "http://httpbin.org/get?%s", next);
     CURL* curl = curl_easy_init();
     if(!curl){
       fprintf(stderr, "Could not initialize curl\n");
-      return;
+      return NULL;
     }
 
-    struct curl_result* result = malloc(sizeof(struct curl_result));
+    CURL_RESULT* result = malloc(sizeof(CURL_RESULT));
     result->data = malloc(sizeof(char));
     result->data[0] = 0;
     result->size = 0;
@@ -53,6 +43,3 @@ void* call_proxy(void* arg){
     free(result);
   }
 }
-
-
-#endif
