@@ -2,7 +2,7 @@ from multiprocessing import Process
 import random
 import time
 
-import memcache
+import pymemcache.client
 
 
 def get_next(num):
@@ -13,10 +13,7 @@ def get_next(num):
 
 def test(calls=1000, keys=100):
     print "Starting Test"
-    mc = memcache.Client(["127.0.0.1:7000"])
-    # hack to make sure we force the connection before the first call
-    for server in mc.servers:
-        server.connect()
+    mc = pymemcache.client.Client(("127.0.0.1", 7000))
 
     elapsed = 0
     total = 0
@@ -25,7 +22,7 @@ def test(calls=1000, keys=100):
     miss = 0
     for _ in range(calls):
         num = numbers.next()
-        key = "test:%s" % num
+        key = "?%s" % num
         start = time.time()
         result = mc.get(key)
         end = time.time()
