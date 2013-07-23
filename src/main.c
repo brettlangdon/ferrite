@@ -1,4 +1,5 @@
 #include <kclangc.h>
+#include <getopt.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <signal.h>
@@ -16,6 +17,25 @@ sig_atomic_t misses = 0;
 sig_atomic_t hits = 0;
 sig_atomic_t connections = 0;
 
+static struct option long_options[] = {
+  {"port", 1, 0, 0},
+  {"url", 1, 0, 0},
+  {"workers", 1, 0, 0},
+  {"cache", 1, 0, 0},
+  {"help", 0, 0, 0},
+  {NULL, 0, NULL, 0}
+};
+
+void usage(){
+  const char* usage_str =
+    "Usage: fast-cache [-p|--port <NUM>] [-w|--workers <NUM>] [-u|--url <STRING>] [-c|--cache <STRING>] [-h|--help]\r\n"
+    "\t-p, --port\t- which port number to bind too [default: 7000]\r\n"
+    "\t-w, --workers\t- how many background workers to spawn [default: 10]\r\n"
+    "\t-u, --url\t- which url to proxy requests to [default: http://127.0.0.1:8000]\r\n"
+    "\t-c, --cache\t- kyoto cabinet cache to use [default: \"*\"]\r\n"
+    "\t-h, --help\t- display this message\r\n";
+  printf("%s", usage_str);
+}
 
 void* worker(void* arg){
   FILE* client = (FILE*) arg;
@@ -63,20 +83,84 @@ void on_signal(){
   exit(0);
 }
 
-int main(){
-  int i, addr_len, yes, port, pool_size;
-  pool_size = 10;
+int main(int argc, char* argv[]){
+  int i, addr_len, yes;
+  int port = 7000;
+  int pool_size = 10;
   pthread_t pool[pool_size];
+  char* cache_file = "*";
   char* base_url = "http://127.0.0.1:8000/";
   struct sockaddr_in addr, client_addr;
 
   signal(SIGINT, on_signal);
   signal(SIGTERM, on_signal);
 
+
+  int c;
+  int option_index = 0;
+  while((c = getopt_long(argc, argv, "hp:u:w:c:", long_options, &option_index)) != -1){
+    if(c == 0){
+      switch(option_index){
+      case 0:
+	c = 'p';
+	break;
+      case 1:
+	c = 'u';
+	break;
+      case 2:
+	c = 'w';
+	break;
+      case 3:
+	c = 'c';
+	break;
+      case 4:
+	c = 'h';
+	break;
+      default:
+	c = '?';
+	break;
+      }
+    }
+    switch(c){
+    case 'p':
+      port = atoi(optarg);
+      if(port <= 0){
+	fprintf(stderr, "Invalid Port Number: %s\r\n", optarg);
+	exit(1);
+      }
+      break;
+    case 'u':
+      base_url = optarg;
+      break;
+    case 'w':
+      pool_size = atoi(optarg);
+      if(pool_size <= 0){
+	fprintf(stderr, "Invalid Worker Count: %s\r\n", optarg);
+	exit(1);
+      }
+      break;
+    case 'c':
+      cache_file = optarg;
+      break;
+    case 'h':
+      usage();
+      exit(0);
+    case '?':
+      usage();
+      exit(1);
+    default:
+      fprintf(stderr, "Unknown Option: %c\r\n", c);
+      usage();
+      exit(-1);
+      break;
+    }
+  }
+
   queue_init(&requests);
 
+  printf("Opening Cache File: \"%s\"\r\n", cache_file);
   db = kcdbnew();
-  if(!kcdbopen(db, "*#bnum=1000000#capsiz=1g", KCOWRITER | KCOCREATE)){
+  if(!kcdbopen(db, cache_file, KCOWRITER | KCOCREATE)){
     fprintf(stderr, "Error opening cache: %s\n", kcecodename(kcdbecode(db)));
     return -1;
   }
@@ -85,6 +169,7 @@ int main(){
   for(i = 0; i < pool_size; ++i){
     pthread_create(&(pool[i]), NULL, call_proxy, (void*)base_url);
   }
+  printf("Connected to %s\r\n", base_url);
 
 
   server = socket(PF_INET, SOCK_STREAM, 0);
