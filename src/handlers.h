@@ -1,7 +1,7 @@
 #ifndef FAST_CACHE_HANDLERS
 #define FAST_CACHE_HANDLERS
 #include <kclangc.h>
-
+#include <time.h>
 #include "common.h"
 #include "queue.h"
 

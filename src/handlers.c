@@ -83,14 +83,31 @@ void handle_get(KCLIST* tokens, FILE* client){
 	++misses;
 	sprintf(out, "VALUE %s 0 0\r\n\r\nEND\r\n", key);
       } else{
-	++hits;
-	sprintf(out, "VALUE %s 0 %d\r\n%s\r\nEND\r\n", key, (int)strlen(result_buffer), result_buffer);
+	char* value = result_buffer + 11;
+	char expiration[16];
+	strncpy(expiration, result_buffer, 10);
+	int exp = atoi(expiration);
+	int now = (int)time(NULL);
+	if(exp > 0 && exp < now){
+	  ++misses;
+	  value = "";
+	  char reset_value[16];
+	  sprintf(reset_value, "%10d:0", 0);
+	  kcdbset(db, key, strlen(key), reset_value, strlen(reset_value));
+	  queue_add(&requests, key);
+	} else{
+	  ++hits;
+	}
+	sprintf(out, "VALUE %s 0 %d\r\n%s\r\nEND\r\n", key, (int)strlen(value), value);
       }
       kcfree(result_buffer);
     } else{
       ++misses;
-      sprintf(out, "VALUE %s 0 2\r\n{}\r\nEND\r\n", key);
-      kcdbset(db, key, strlen(key), "0", 1);
+      sprintf(out, "VALUE %s 0 0\r\n\r\nEND\r\n", key);
+      char value[16];
+      int now = (int)time(NULL);
+      sprintf(value, "%10d:0", now + 60);
+      kcdbset(db, key, strlen(key), value, strlen(value));
       queue_add(&requests, key);
     }
     fputs(out, client);
@@ -107,7 +124,7 @@ int handle_command(char* buffer, FILE* client){
   char* command;
   list_shift(tokens, &command);
   if(command != NULL){
-    if(strncmp(command, "get", 3) == 0){
+    if(strcmp(command, "get") == 0){
       handle_get(tokens, client);
     } else if(strcmp(command, "stats") == 0){
       handle_stats(tokens, client);

@@ -2,6 +2,7 @@
 #define FAST_CACHE_PROXY
 
 #include <curl/curl.h>
+#include <time.h>
 #include "common.h"
 #include "queue.h"
 

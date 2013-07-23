@@ -38,7 +38,10 @@ void* call_proxy(void* arg){
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, result);
     res = curl_easy_perform(curl);
-    kcdbset(db, next, strlen(next), result->data, strlen(result->data));
+    char value[1024];
+    int now = (int)time(NULL);
+    sprintf(value, "%10d:%s", now + record_expire_time, result->data);
+    kcdbset(db, next, strlen(next), value, strlen(value));
 
     if(url != NULL){
       free(url);

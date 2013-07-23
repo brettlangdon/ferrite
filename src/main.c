@@ -16,23 +16,27 @@
 sig_atomic_t misses = 0;
 sig_atomic_t hits = 0;
 sig_atomic_t connections = 0;
+int record_expire_time = 3600;
 
 static struct option long_options[] = {
   {"port", 1, 0, 0},
   {"url", 1, 0, 0},
   {"workers", 1, 0, 0},
   {"cache", 1, 0, 0},
+  {"expire", 1, 0, 0},
   {"help", 0, 0, 0},
   {NULL, 0, NULL, 0}
 };
 
 void usage(){
   const char* usage_str =
-    "Usage: fast-cache [-p|--port <NUM>] [-w|--workers <NUM>] [-u|--url <STRING>] [-c|--cache <STRING>] [-h|--help]\r\n"
+    "Usage: fast-cache [-h|--help] [-p|--port <NUM>] [-w|--workers <NUM>] [-u|--url <STRING>]\r\n"
+    "                  [-c|--cache <STRING>] [-e|--expire <NUM>]\r\n"
     "\t-p, --port\t- which port number to bind too [default: 7000]\r\n"
     "\t-w, --workers\t- how many background workers to spawn [default: 10]\r\n"
     "\t-u, --url\t- which url to proxy requests to [default: http://127.0.0.1:8000]\r\n"
     "\t-c, --cache\t- kyoto cabinet cache to use [default: \"*\"]\r\n"
+    "\t-e, --expire\t- the expiration time in seconds from when a record is cached [default:3600]\r\n"
     "\t-h, --help\t- display this message\r\n";
   printf("%s", usage_str);
 }
@@ -114,6 +118,9 @@ int main(int argc, char* argv[]){
 	c = 'c';
 	break;
       case 4:
+	c = 'e';
+	break;
+      case 5:
 	c = 'h';
 	break;
       default:
@@ -142,12 +149,17 @@ int main(int argc, char* argv[]){
     case 'c':
       cache_file = optarg;
       break;
+    case 'e':
+      record_expire_time = atoi(optarg);
+      if(record_expire_time <= 0){
+	fprintf(stderr, "Invalid Expiration Time: %s\r\n", optarg);
+	exit(1);
+      }
+      break;
     case 'h':
       usage();
       exit(0);
     case '?':
-      usage();
-      exit(1);
     default:
       fprintf(stderr, "Unknown Option: %c\r\n", c);
       usage();
