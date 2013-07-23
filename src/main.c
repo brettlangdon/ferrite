@@ -20,7 +20,7 @@ sig_atomic_t connections = 0;
 void* worker(void* arg){
   FILE* client = (FILE*) arg;
 
-  char buffer[100];
+  char buffer[128];
   ++connections;
   int status;
   while(fgets(buffer, sizeof(buffer), client)){
@@ -44,8 +44,10 @@ void* worker(void* arg){
 }
 
 void on_signal(){
+  printf("Shutting down fast-cache\r\n");
   if(server){
     printf("Closing socket\r\n");
+    shutdown(server, 2);
     close(server);
   }
 
@@ -62,9 +64,14 @@ void on_signal(){
 }
 
 int main(){
-  signal(SIGINT, on_signal);
-  int pool_size = 10;
+  int i, addr_len, yes, port, pool_size;
+  pool_size = 10;
   pthread_t pool[pool_size];
+  char* base_url = "http://127.0.0.1:8000/";
+  struct sockaddr_in addr, client_addr;
+
+  signal(SIGINT, on_signal);
+  signal(SIGTERM, on_signal);
 
   queue_init(&requests);
 
@@ -74,14 +81,11 @@ int main(){
     return -1;
   }
 
-  int i;
   printf("Starting %d worker threads\r\n", pool_size);
   for(i = 0; i < pool_size; ++i){
-    pthread_create(&(pool[i]), NULL, call_proxy, NULL);
+    pthread_create(&(pool[i]), NULL, call_proxy, (void*)base_url);
   }
 
-  struct sockaddr_in addr, client_addr;
-  int addr_len;
 
   server = socket(PF_INET, SOCK_STREAM, 0);
   if(!server){
@@ -89,20 +93,23 @@ int main(){
     return -1;
   }
 
+  port = 7000;
   addr.sin_family = AF_INET;
-  addr.sin_port = htons(7000);
+  addr.sin_port = htons(port);
   addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
   if(bind(server, (struct sockaddr*)&addr, sizeof(addr)) < 0){
-    fprintf(stderr, "Address already in use\r\n");
+    perror("Error binding socket");
     return -1;
   }
 
+  yes = 1;
+  setsockopt(server,SOL_SOCKET,(SO_REUSEPORT | SO_REUSEADDR), &yes, sizeof(yes));
   if(listen(server, 24) < 0){
-    fprintf(stderr, "Address already in use\r\n");
+    perror("Error binding socket");
     return -1;
   } else{
-    printf("Listening on 0.0.0.0:7000\r\n");
+    printf("Listening on 0.0.0.0:%d\r\n", port);
     int client;
     pthread_t child;
     FILE *fp;
