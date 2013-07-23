@@ -14,7 +14,8 @@ const char* HELP_TEXT =
   "COMMANDS:\r\n"
   "  STATS - show statistics\r\n"
   "  GET <KEY> - get <KEY> from the cache or empty when not present\r\n"
-  "  VERSION - show the current application version"
+  "  DELETE <KEY> - remove the entry from the cache if it exists\r\n"
+  "  VERSION - show the current application version\r\n"
   "  FLUSH_ALL - clear the cache\r\n"
   "  HELP - show this message\r\n"
   "  QUIT - disconnect from the server\r\n";
@@ -62,6 +63,22 @@ void handle_flush(KCLIST* tokens, FILE* client){
   }
 }
 
+void handle_delete(KCLIST* tokens, FILE* client){
+  if(kclistcount(tokens)){
+    char* key;
+    list_shift(tokens, &key);
+    if(key == NULL){
+      return;
+    }
+    if(kcdbremove(db, key, strlen(key))){
+      fputs("DELETED\r\n", client);
+    } else{
+      fputs("NOT_FOUND\r\n", client);
+    }
+  } else{
+    fputs("INVALID DELETE COMMAND: DELETE <KEY>\r\n", client);
+  }
+}
 
 void handle_get(KCLIST* tokens, FILE* client){
   if(kclistcount(tokens)){
@@ -128,6 +145,8 @@ int handle_command(char* buffer, FILE* client){
       handle_get(tokens, client);
     } else if(strcmp(command, "stats") == 0){
       handle_stats(tokens, client);
+    } else if(strcmp(command, "delete") == 0){
+      handle_delete(tokens, client);
     } else if(strcmp(command, "flush_all") == 0){
       handle_flush(tokens, client);
     } else if(strcmp(command, "version") == 0){
