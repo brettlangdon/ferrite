@@ -3,6 +3,7 @@
 const char* VERSION = "0.0.1";
 const char* STATS_FORMAT =
   "STAT connections %d\r\n"
+  "STAT requests %d\r\n"
   "STAT hits %d\r\n"
   "STAT misses %d\r\n"
   "STAT hit_ratio %2.4f\r\n"
@@ -12,6 +13,7 @@ const char* STATS_FORMAT =
 
 void handle_stats(KCLIST* tokens, FILE* client){
   char out[1024];
+  int total = hits + misses;
   float hit_ratio = 0;
   if(hits){
     hit_ratio = (float)hits / (float)(hits + misses);
@@ -36,7 +38,7 @@ void handle_stats(KCLIST* tokens, FILE* client){
     kclistdel(parts);
     strcat(status_buf, buf);
   }
-  sprintf(out, STATS_FORMAT, connections, hits, misses, hit_ratio, size, status_buf);
+  sprintf(out, STATS_FORMAT, connections, total, hits, misses, hit_ratio, size, status_buf);
   fputs(out, client);
 }
 
