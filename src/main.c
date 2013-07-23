@@ -36,7 +36,7 @@ void usage(){
     "\t-w, --workers\t- how many background workers to spawn [default: 10]\r\n"
     "\t-u, --url\t- which url to proxy requests to [default: http://127.0.0.1:8000]\r\n"
     "\t-c, --cache\t- kyoto cabinet cache to use [default: \"*\"]\r\n"
-    "\t-e, --expire\t- the expiration time in seconds from when a record is cached [default:3600]\r\n"
+    "\t-e, --expire\t- the expiration time in seconds from when a record is cached, 0 to disable [default:3600]\r\n"
     "\t-h, --help\t- display this message\r\n";
   printf("%s", usage_str);
 }
