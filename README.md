@@ -1,71 +1,72 @@
 fast-cache
 ==========
 
-A very fast kyoto cabinet powered memcache interface http proxy caching server.
+A very fast kyoto cabinet powered memcached interface API proxy caching server.
 
+This is not your normal caching proxy server. For starters it doesn't speak HTTP (other than to the backend),
+you interact with it via a subset of the memcached commands. The main purpose is you give it a url like:
+`http://api.my-domain.com/api/` and then you make memcache get calls like `get/users` or `user/12` or any other
+GET only api end point. The result content does not matter at all (which means you could use this to cache HTTP get calls).
 
-Very rough done benchmark so far, just running against a local wsgi app with 5 gunicorn workers returning `{}` only.
+The other _very_ important thing about `fast-cache` is that when it gets a cache miss it does now wait around for a response
+from the proxy server, it will send back an empty string to the client making the request and then queue up the request to
+the proxy server. This means that although you will get back an empty string when you get a cache miss your response times
+from this proxy server will be consistent (which can be very important for high performance applications).
+
+## Install
+### Requirements
+ * Kyoto Cabinet Installed
+ * libcurl Installed
+
+```bash
+git clone git://github.com/brettlangdon/fast-cache.git
+cd ./fast-cache
+make
+# now you have a binary "./fast-cache" available, there is not `make install` yet
+```
+
+## Using
+Just use your favorite memcache client
 ```python
-import random
-import time
-
-import memcache
-
-mc = memcache.Client(["127.0.0.1:7000"])
-# hack to make sure we force the connection before the first call
-for server in mc.servers:
-    server.connect()
-
-elapsed = 0
-total = 0
-numbers = range(5000)
-for _ in range(100000):
-    start = time.time()
-    result = mc.get("test:%s" % random.choice(numbers))
-    end = time.time()
-    if result is None:
-        break
-    elapsed += end - start
-    total += 1
-
-print "Total: %s" % total
-print "Total Elapsed: %s" % elapsed
-print "Average: %s" % (elapsed / total)
-print "Req/sec: %s" % (total / elapsed)
-
+import pymemcache.client
+mc = pymemcache.client.Client([("127.0.0.1", 7000)])
+users = mc.get("/all/users")
 ```
 
-Fresh cache:
 ```bash
-╭─brett@Voltaire  ~/Desktop/fast-cache  ‹master›
-╰─$ python bench.py                                                                                          
-Total: 100000
-Total Elapsed: 21.179005146
-Average: 0.00021179005146
-Req/sec: 4721.65709912
-```
-
-Second Run:
-```bash
-╭─brett@Voltaire  ~/Desktop/fast-cache  ‹master›
-╰─$ python bench.py
-Total: 100000
-Total Elapsed: 14.9816277027
-Average: 0.000149816277027
-Req/sec: 6674.84214562
-```
-
-`STATS`
-```bash
-╭─brett@Voltaire  ~/Desktop/fast-cache  ‹master›
-╰─$ telnet 127.0.0.1 7000
+telnet 127.0.0.1 7000
 Trying 127.0.0.1...
 Connected to localhost.
 Escape character is '^]'.
-STATS
-STAT cache_miss 5000
-STAT hits 195000
-STAT hit_ratio 0.98
-STAT records 5000
+stats
+STAT connections 1
+STAT requests 0
+STAT hits 0
+STAT misses 0
+STAT hit_ratio 0.0000
+STAT backlog 0
+STAT bnum 1048583
+STAT capcnt -1
+STAT capsiz -1
+STAT chksum 255
+STAT count 0
+STAT fmtver 5
+STAT librev 13
+STAT libver 16
+STAT opts 0
+STAT path *
+STAT realtype 32
+STAT recovered 0
+STAT reorganized 0
+STAT size 8390432
+STAT type 32
+END
+get all/users
+VALUE all/users 0 0
+
+END
+get all/users
+VALUE all/users 0 2
+{}
 END
 ```
