@@ -11,18 +11,19 @@
 #include "queue.h"
 #include "util.h"
 
+
 sig_atomic_t misses = 0;
 sig_atomic_t hits = 0;
 sig_atomic_t connections = 0;
 
 
 void* worker(void* arg){
-  FILE* fp = (FILE*) arg;
+  FILE* client = (FILE*) arg;
 
   char buffer[100];
   ++connections;
   int status;
-  while(fgets(buffer, sizeof(buffer), fp)){
+  while(fgets(buffer, sizeof(buffer), client)){
     int last = strlen(buffer) - 1;
     for(; last > 0; --last){
       if(buffer[last] == '\r' || buffer[last] == '\n'){
@@ -30,7 +31,7 @@ void* worker(void* arg){
       }
     }
     if(strlen(buffer)){
-      status = handle_command(buffer, fp);
+      status = handle_command(buffer, client);
       if(status == -1){
 	break;
       }
@@ -38,7 +39,7 @@ void* worker(void* arg){
   }
 
   --connections;
-  fclose(fp);
+  fclose(client);
   return 0;
 }
 
