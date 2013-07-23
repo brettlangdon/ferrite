@@ -10,6 +10,14 @@ const char* STATS_FORMAT =
   "STAT backlog %d\r\n"
   "%s"
   "END\r\n";
+const char* HELP_TEXT =
+  "COMMANDS:\r\n"
+  "  STATS - show statistics\r\n"
+  "  GET <KEY> - get <KEY> from the cache or empty when not present\r\n"
+  "  VERSION - show the current application version"
+  "  FLUSH_ALL - clear the cache\r\n"
+  "  HELP - show this message\r\n"
+  "  QUIT - disconnect from the server\r\n";
 
 void handle_stats(KCLIST* tokens, FILE* client){
   char out[1024];
@@ -54,18 +62,6 @@ void handle_flush(KCLIST* tokens, FILE* client){
   }
 }
 
-void handle_delete(KCLIST* tokens, FILE* client){
-  if(kclistcount(tokens)){
-    char* key;
-    list_shift(tokens, &key);
-    if(key != NULL){
-      if(kcdbremove(db, key, strlen(key))){
-	fputs("DELETED\r\n", client);
-      }
-      free(key);
-    }
-  }
-}
 
 void handle_get(KCLIST* tokens, FILE* client){
   if(kclistcount(tokens)){
@@ -117,6 +113,10 @@ void handle_get(KCLIST* tokens, FILE* client){
   }
 }
 
+void handle_help(KCLIST* tokens, FILE* client){
+  fputs(HELP_TEXT, client);
+}
+
 int handle_command(char* buffer, FILE* client){
   int status = 0;
   KCLIST* tokens = kclistnew();
@@ -130,10 +130,10 @@ int handle_command(char* buffer, FILE* client){
       handle_stats(tokens, client);
     } else if(strcmp(command, "flush_all") == 0){
       handle_flush(tokens, client);
-    } else if(strcmp(command, "delete") == 0){
-      handle_delete(tokens, client);
     } else if(strcmp(command, "version") == 0){
       handle_version(tokens, client);
+    } else if(strcmp(command, "help") == 0){
+      handle_help(tokens, client);
     } else if(strcmp(command, "quit") == 0){
       status = -1;
     } else{
