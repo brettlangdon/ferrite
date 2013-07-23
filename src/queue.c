@@ -21,7 +21,7 @@ void queue_add(PTR_QUEUE q, char* value){
   pthread_cond_signal(&q->cond);
 }
 
-void queue_get(PTR_QUEUE q, char* value){
+void queue_get(PTR_QUEUE q, char** value){
   pthread_mutex_lock(&q->mutex);
   while(*(&q->size) == 0){
     pthread_cond_wait(&q->cond, &q->mutex);

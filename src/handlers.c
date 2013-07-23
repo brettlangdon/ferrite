@@ -56,18 +56,24 @@ void handle_flush(KCLIST* tokens, FILE* client){
 
 void handle_delete(KCLIST* tokens, FILE* client){
   if(kclistcount(tokens)){
-    char key[128];
-    list_shift(tokens, key);
-    if(kcdbremove(db, key, strlen(key))){
-      fputs("DELETED\r\n", client);
+    char* key;
+    list_shift(tokens, &key);
+    if(key != NULL){
+      if(kcdbremove(db, key, strlen(key))){
+	fputs("DELETED\r\n", client);
+      }
+      free(key);
     }
   }
 }
 
 void handle_get(KCLIST* tokens, FILE* client){
   if(kclistcount(tokens)){
-    char key[128];
-    list_shift(tokens, key);
+    char* key;
+    list_shift(tokens, &key);
+    if(key == NULL){
+      return;
+    }
     char out[1024];
     char* result_buffer;
     size_t result_size;
@@ -88,20 +94,20 @@ void handle_get(KCLIST* tokens, FILE* client){
       queue_add(&requests, key);
     }
     fputs(out, client);
+    free(key);
   } else{
     fputs("INVALID GET COMMAND: GET <KEY>\r\n", client);
-    return;
   }
 }
 
 int handle_command(char* buffer, FILE* client){
   int status = 0;
-  char command[1024];
   KCLIST* tokens = kclistnew();
   tokenize(tokens, buffer, " ");
-  list_shift(tokens, command);
+  char* command;
+  list_shift(tokens, &command);
   if(command != NULL){
-    if(strcmp(command, "get") == 0){
+    if(strncmp(command, "get", 3) == 0){
       handle_get(tokens, client);
     } else if(strcmp(command, "stats") == 0){
       handle_stats(tokens, client);
@@ -118,6 +124,7 @@ int handle_command(char* buffer, FILE* client){
       sprintf(out, "UNKNOWN COMMAND: %s\r\n", command);
       fputs(out, client);
     }
+    free(command);
   }
 
   kclistdel(tokens);

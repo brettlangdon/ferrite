@@ -17,7 +17,7 @@ typedef QUEUE* PTR_QUEUE;
 void queue_del(PTR_QUEUE q);
 void queue_init(PTR_QUEUE q);
 void queue_add(PTR_QUEUE q, char* value);
-void queue_get(PTR_QUEUE q, char* value);
+void queue_get(PTR_QUEUE q, char** value);
 int queue_size(PTR_QUEUE q);
 
 #endif

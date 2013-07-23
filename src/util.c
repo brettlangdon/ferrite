@@ -1,10 +1,11 @@
 #include "util.h"
 
-void list_shift(KCLIST* list, char* next){
+void list_shift(KCLIST* list, char** next){
   size_t size;
   const char* results = kclistget(list, 0, &size);
-  strcpy(next, results);
-  next[size] = 0;
+  *next = malloc((size * sizeof(char)) + 1);
+  strcpy(*next, results);
+  (*next)[size] = 0;
   kclistshift(list);
 }
 
