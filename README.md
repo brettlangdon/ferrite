@@ -14,12 +14,12 @@ the proxy server. This means that although you will get back an empty string whe
 from this proxy server will be consistent (which can be very important for high performance applications).
 
 ## Name
-The name `ferrite` comes from: [Ferrite Magnet](http://en.wikipedia.org/wiki/Ferrite_(magnet))
+The name `ferrite` comes from: [Ferrite Magnet](http://en.wikipedia.org/wiki/Ferrite_\(magnet\))
 
 ## Install
 ### Requirements
- * Kyoto Cabinet Installed
- * libcurl Installed
+ * [Kyoto Cabinet](http://fallabs.com/kyotocabinet/pkg/) - built and tested with version `1.2.76`
+ * [libcurl](http://curl.haxx.se/libcurl/) - built and tested with version `7.21.4`
 
 ```bash
 git clone git://github.com/brettlangdon/ferrite.git
@@ -29,7 +29,7 @@ make install
 ```
 
 ## Using
-## Usage
+### Usage
 ```bash
 $ ferrite --help
 Usage: ferrite [-h|--help] [-p|--port <NUM>] [-w|--workers <NUM>] [-u|--url <STRING>] [-c|--cache <STRING>] [-e|--expire <NUM>]
@@ -41,7 +41,7 @@ Usage: ferrite [-h|--help] [-p|--port <NUM>] [-w|--workers <NUM>] [-u|--url <STR
     -h, --help    - display this message
 ```
 
-## Memcache Client
+### Memcache Client
 Just use your favorite memcache client
 ```python
 import pymemcache.client
@@ -49,7 +49,7 @@ mc = pymemcache.client.Client([("127.0.0.1", 7000)])
 users = mc.get("/all/users")
 ```
 
-## Telnet
+### Telnet
 ```bash
 telnet 127.0.0.1 7000
 Trying 127.0.0.1...
@@ -86,4 +86,28 @@ get all/users
 VALUE all/users 0 2
 {}
 END
+```
+
+## License
+```
+The MIT License (MIT)
+
+Copyright (c) 2013 Brett Langdon
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
