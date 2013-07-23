@@ -15,16 +15,20 @@ size_t curl_write(char* ptr, size_t size, size_t nmemb, CURL_RESULT* result){
 }
 
 void* call_proxy(void* arg){
-  char next[1024];
+  char* base_url = (char*)arg;
+  CURL* curl = curl_easy_init();
+  if(!curl){
+    fprintf(stderr, "Could not initialize curl\n");
+    return NULL;
+  }
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write);
+
   while(1){
-    queue_get(&requests, next);
-    char* url = (char*)malloc(1024 * sizeof(char));
-    sprintf(url, "http://httpbin.org/get?%s", next);
-    CURL* curl = curl_easy_init();
-    if(!curl){
-      fprintf(stderr, "Could not initialize curl\n");
-      return NULL;
-    }
+    char* next;
+    queue_get(&requests, &next);
+    int url_size = strlen(base_url) + strlen(next) + 1;
+    char* url = (char*)malloc(url_size * sizeof(char));
+    sprintf(url, "%s%s", base_url, next);
 
     CURL_RESULT* result = malloc(sizeof(CURL_RESULT));
     result->data = malloc(sizeof(char));
@@ -32,13 +36,16 @@ void* call_proxy(void* arg){
     result->size = 0;
     CURLcode res;
     curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, result);
     res = curl_easy_perform(curl);
     kcdbset(db, next, strlen(next), result->data, strlen(result->data));
 
-    curl_easy_cleanup(curl);
-    free(url);
+    if(url != NULL){
+      free(url);
+    }
+    if(next != NULL){
+      free(next);
+    }
     free(result->data);
     free(result);
   }
