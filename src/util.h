@@ -1,5 +1,5 @@
-#ifndef FAST_CACHE_UTIL
-#define FAST_CACHE_UTIL
+#ifndef FERRITE_UTIL
+#define FERRITE_UTIL
 
 #include <kclangc.h>
 

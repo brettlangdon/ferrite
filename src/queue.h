@@ -1,5 +1,5 @@
-#ifndef FAST_CACHE_QUEUE
-#define FAST_CACHE_QUEUE
+#ifndef FERRITE_QUEUE
+#define FERRITE_QUEUE
 
 #include <kclangc.h>
 #include <pthread.h>

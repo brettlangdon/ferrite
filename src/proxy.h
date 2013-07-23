@@ -1,5 +1,5 @@
-#ifndef FAST_CACHE_PROXY
-#define FAST_CACHE_PROXY
+#ifndef FERRITE_PROXY
+#define FERRITE_PROXY
 
 #include <curl/curl.h>
 #include <time.h>

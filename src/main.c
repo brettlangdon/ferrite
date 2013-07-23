@@ -30,7 +30,7 @@ static struct option long_options[] = {
 
 void usage(){
   const char* usage_str =
-    "Usage: fast-cache [-h|--help] [-p|--port <NUM>] [-w|--workers <NUM>] [-u|--url <STRING>]\r\n"
+    "Usage: ferrite [-h|--help] [-p|--port <NUM>] [-w|--workers <NUM>] [-u|--url <STRING>]\r\n"
     "                  [-c|--cache <STRING>] [-e|--expire <NUM>]\r\n"
     "\t-p, --port\t- which port number to bind too [default: 7000]\r\n"
     "\t-w, --workers\t- how many background workers to spawn [default: 10]\r\n"
@@ -68,7 +68,7 @@ void* worker(void* arg){
 }
 
 void on_signal(){
-  printf("Shutting down fast-cache\r\n");
+  printf("Shutting down ferrite\r\n");
   if(server){
     printf("Closing socket\r\n");
     shutdown(server, 2);

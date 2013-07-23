@@ -1,5 +1,5 @@
-#ifndef FAST_CACHE_HANDLERS
-#define FAST_CACHE_HANDLERS
+#ifndef FERRITE_HANDLERS
+#define FERRITE_HANDLERS
 #include <kclangc.h>
 #include <time.h>
 #include "common.h"

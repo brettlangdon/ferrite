@@ -1,5 +1,5 @@
-#ifndef FAST_CACHE_COMMON
-#define FAST_CACHE_COMMON
+#ifndef FERRITE_COMMON
+#define FERRITE_COMMON
 #include "queue.h"
 
 extern sig_atomic_t misses;
