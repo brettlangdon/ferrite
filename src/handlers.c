@@ -71,38 +71,37 @@ void handle_get(KCLIST* tokens, FILE* client){
       return;
     }
     char out[1024];
+    char* value = "";
     char* result_buffer;
     size_t result_size;
     result_buffer = kcdbget(db, key, strlen(key), &result_size);
     if(result_buffer){
-      if(strcmp(result_buffer, "0") == 0){
-	++misses;
-	sprintf(out, "END\r\n");
-      } else{
-	char* value = result_buffer + 11;
+      if(strcmp(result_buffer, "0") != 0){
+	value = result_buffer + 11;
 	char expiration[16];
 	strncpy(expiration, result_buffer, 10);
 	int exp = atoi(expiration);
 	int now = (int)time(NULL);
 	if(exp > 0 && exp < now){
-	  ++misses;
 	  value = "";
-	  char reset_value[16];
-	  sprintf(reset_value, "%10d:0", 0);
-	  kcdbset(db, key, strlen(key), reset_value, strlen(reset_value));
-	  queue_add(&requests, key);
-	} else{
-	  ++hits;
 	}
-	sprintf(out, "VALUE %s 0 %d\r\n%s\r\nEND\r\n", key, (int)strlen(value), value);
+      } else {
+	value = "0";
       }
       kcfree(result_buffer);
+    }
+
+    if(strlen(value)){
+      ++hits;
+      sprintf(out, "VALUE %s 0 %d\r\n%s\r\nEND\r\n", key, (int)strlen(value), value);
+    } else if(strcmp(value, "0") == 0){
+      ++misses;
+      sprintf(out, "END\r\n");
     } else{
       ++misses;
       sprintf(out, "END\r\n");
       char value[16];
-      int now = (int)time(NULL);
-      sprintf(value, "%10d:0", now + 60);
+      sprintf(value, "%10d:0", 0);
       kcdbset(db, key, strlen(key), value, strlen(value));
       queue_add(&requests, key);
     }
