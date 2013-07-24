@@ -102,7 +102,7 @@ int main(int argc, char* argv[]){
 
   int c;
   int option_index = 0;
-  while((c = getopt_long(argc, argv, "hp:u:w:c:", long_options, &option_index)) != -1){
+  while((c = getopt_long(argc, argv, "hp:u:w:c:e:", long_options, &option_index)) != -1){
     if(c == 0){
       switch(option_index){
       case 0:
@@ -170,6 +170,7 @@ int main(int argc, char* argv[]){
 
   queue_init(&requests);
 
+  printf("Using Expire Time of %d sec\r\n", record_expire_time);
   printf("Opening Cache File: \"%s\"\r\n", cache_file);
   db = kcdbnew();
   if(!kcdbopen(db, cache_file, KCOWRITER | KCOCREATE)){
