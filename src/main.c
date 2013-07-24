@@ -195,13 +195,13 @@ int main(int argc, char* argv[]){
   addr.sin_port = htons(port);
   addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
+  yes = 1;
+  setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
   if(bind(server, (struct sockaddr*)&addr, sizeof(addr)) < 0){
     perror("Error binding socket");
     return -1;
   }
 
-  yes = 1;
-  setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
   if(listen(server, 24) < 0){
     perror("Error binding socket");
     return -1;
