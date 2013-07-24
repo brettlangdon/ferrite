@@ -77,7 +77,7 @@ void handle_get(KCLIST* tokens, FILE* client){
     if(result_buffer){
       if(strcmp(result_buffer, "0") == 0){
 	++misses;
-	sprintf(out, "VALUE %s 0 0\r\n\r\nEND\r\n", key);
+	sprintf(out, "END\r\n");
       } else{
 	char* value = result_buffer + 11;
 	char expiration[16];
@@ -99,7 +99,7 @@ void handle_get(KCLIST* tokens, FILE* client){
       kcfree(result_buffer);
     } else{
       ++misses;
-      sprintf(out, "VALUE %s 0 0\r\n\r\nEND\r\n", key);
+      sprintf(out, "END\r\n");
       char value[16];
       int now = (int)time(NULL);
       sprintf(value, "%10d:0", now + 60);
