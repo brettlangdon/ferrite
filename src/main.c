@@ -201,7 +201,7 @@ int main(int argc, char* argv[]){
   }
 
   yes = 1;
-  setsockopt(server,SOL_SOCKET,(SO_REUSEPORT | SO_REUSEADDR), &yes, sizeof(yes));
+  setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
   if(listen(server, 24) < 0){
     perror("Error binding socket");
     return -1;
