@@ -46,6 +46,7 @@ void handle_stats(KCLIST* tokens, FILE* client){
     kclistdel(parts);
     strcat(status_buf, buf);
   }
+  kclistdel(stats);
   sprintf(out, STATS_FORMAT, connections, total, hits, misses, hit_ratio, size, status_buf);
   fputs(out, client);
 }
@@ -56,12 +57,24 @@ void handle_version(KCLIST* tokens, FILE* client){
   fputs(out, client);
 }
 
-void handle_flush(KCLIST* tokens, FILE* client){
-  if(kcdbclear(db)){
-    fputs("OK\r\n", client);
+void handle_delete(KCLIST* tokens, FILE* client){
+  if(kclistcount(tokens)){
+    char* key;
+    list_shift(tokens, &key);
+    if(key != NULL){
+      if(kcdbremove(db, key, strlen(key))){
+	fputs("DELETED\r\n", client);
+	return;
+      }
+    }
   }
+  fputs("NOT_FOUND\r\n", client);
 }
 
+void handle_flush(KCLIST* tokens, FILE* client){
+  kcdbclear(db);
+  fputs("OK\r\n", client);
+}
 
 void handle_get(KCLIST* tokens, FILE* client){
   if(kclistcount(tokens)){
@@ -91,12 +104,12 @@ void handle_get(KCLIST* tokens, FILE* client){
       kcfree(result_buffer);
     }
 
-    if(strlen(value)){
-      ++hits;
-      sprintf(out, "VALUE %s 0 %d\r\n%s\r\nEND\r\n", key, (int)strlen(value), value);
-    } else if(strcmp(value, "0") == 0){
+    if(strcmp(value, "0") == 0){
       ++misses;
       sprintf(out, "END\r\n");
+    } else if(strlen(value)){
+      ++hits;
+      sprintf(out, "VALUE %s 0 %d\r\n%s\r\nEND\r\n", key, (int)strlen(value), value);
     } else{
       ++misses;
       sprintf(out, "END\r\n");
@@ -108,7 +121,7 @@ void handle_get(KCLIST* tokens, FILE* client){
     fputs(out, client);
     free(key);
   } else{
-    fputs("INVALID GET COMMAND: GET <KEY>\r\n", client);
+    fputs("ERROR: GET <KEY>\r\n", client);
   }
 }
 
@@ -127,6 +140,8 @@ int handle_command(char* buffer, FILE* client){
       handle_get(tokens, client);
     } else if(strcmp(command, "stats") == 0){
       handle_stats(tokens, client);
+    } else if(strcmp(command, "delete") == 0){
+      handle_delete(tokens, client);
     } else if(strcmp(command, "flush_all") == 0){
       handle_flush(tokens, client);
     } else if(strcmp(command, "version") == 0){
@@ -137,7 +152,7 @@ int handle_command(char* buffer, FILE* client){
       status = -1;
     } else{
       char out[1024];
-      sprintf(out, "UNKNOWN COMMAND: %s\r\n", command);
+      sprintf(out, "ERROR: UNKNOWN COMMAND %s\r\n", command);
       fputs(out, client);
     }
     free(command);
