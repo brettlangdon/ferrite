@@ -42,6 +42,9 @@ func HandleCommand(command string, tokens []string, db *cabinet.KCDB) string {
 	case "version":
 		result = HandleVersion()
 		break
+	case "help":
+		result = HandleHelp()
+		break
 	default:
 		result = "ERROR\r\n"
 		break
@@ -154,4 +157,16 @@ func HandleDelete(tokens []string, db *cabinet.KCDB) string {
 
 func HandleVersion() string {
 	return fmt.Sprintf("VERSION %s\r\n", common.VERSION)
+}
+
+func HandleHelp() string {
+	return "COMMAND GET <KEY> - retrieve <KEY> from the cache\r\n" +
+		"COMMAND FLUSH_ALL - remove all records from the cache\r\n" +
+		"COMMAND DELETE <KEY> - remove <KEY> from the cache\r\n" +
+		"COMMAND VERSION - display the application version\r\n" +
+		"COMMAND STATS - display application statistics\r\n" +
+		"COMMAND QUIT - close the connection\r\n" +
+		"COMMAND EXIT - same as QUIT\r\n" +
+		"COMMAND HELP - display this information\r\n" +
+		"END\r\n"
 }
